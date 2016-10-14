@@ -1,5 +1,15 @@
 'use strict';
 
+// this has to come before anything else
+require('dotenv').config();
+// note that we are not saving the module to a variable; we are requiring the
+// object that it exports, and firing the .config method on it
+// it is the same as saying:
+//    const throwaway = require('dotenv');
+//    throwaway.config();
+// doing it the second way would be 'useless assignment
+// to an intermediary variable'
+
 const fs = require('fs');
 const fileType = require('file-type');
 // we are breaking convention to name this in all caps so that it is
@@ -38,10 +48,11 @@ const parseFile = (fileBuffer) => {
   return file;
 };
 
+// returns and instance of the S3 manager that will be authenticated
 const s3 = new AWS.S3({
   credentials: {
-    accessKeyId: '',
-    secretAccessKey: '',
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   }
 });
 
@@ -58,14 +69,21 @@ const upload = (file) => {
     // pick a filename for S3 to use
     Key: `test/test.${file.ext}`
   };
-  // don't actually upload data yet; just pass the data down the Promise chain
-  return Promise.resolve(options);
+
+  return new Promise((resolve, reject) => {
+    s3.upload(options, (error,data) => {
+      if (error) {
+        reject(error);
+      }
+
+      resolve(data);
+    });
+  });
 };
 
-const logMessage = (upload) => {
-  delete upload.Body; // this is temporary so we can log the rest of the options
+const logMessage = (response) => {
   // turn the pojo into a string so we can see it on the console
-  console.log(`the upload options are ${JSON.stringify(upload)}`);
+  console.log(`the response from AWS was ${JSON.stringify(response)}`);
 };
 
 // call readFile and pass it the filename to initiate the Promise chain
